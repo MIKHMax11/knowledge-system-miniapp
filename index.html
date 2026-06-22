@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Knowledge System</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            color: #e0e0e0;
+            min-height: 100vh;
+            padding: 16px;
+        }
+        .container { max-width: 600px; margin: 0 auto; }
+        header {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            text-align: center;
+        }
+        header h1 {
+            font-size: 1.8em;
+            background: linear-gradient(135deg, #00d4ff, #0099ff);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        header p { color: #a0a0a0; font-size: 0.85em; margin-top: 4px; }
+        .status {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 12px;
+            background: rgba(0,255,150,0.1);
+            border: 1px solid rgba(0,255,150,0.3);
+            border-radius: 6px;
+            color: #00ff96;
+            font-size: 0.8em;
+            margin-top: 8px;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            background: #00ff96;
+            border-radius: 50%;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        .card {
+            background: rgba(255,255,255,0.05);
+            border-radius: 12px;
+            padding: 16px;
+            margin-bottom: 16px;
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        .card h2 {
+            color: #00d4ff;
+            font-size: 1.1em;
+            margin-bottom: 12px;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr 1fr;
+            gap: 8px;
+        }
+        .stat-box {
+            background: rgba(0,212,255,0.05);
+            border: 1px solid rgba(0,212,255,0.2);
+            border-radius: 8px;
+            padding: 12px;
+            text-align: center;
+        }
+        .stat-value {
+            font-size: 1.5em;
+            color: #00d4ff;
+            font-weight: bold;
+        }
+        .stat-label {
+            color: #a0a0a0;
+            font-size: 0.65em;
+            text-transform: uppercase;
+            margin-top: 2px;
+        }
+        .btn {
+            width: 100%;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #00d4ff, #0099ff);
+            color: #000;
+            font-weight: 600;
+            font-size: 0.9em;
+            cursor: pointer;
+        }
+        .btn:active { transform: scale(0.97); }
+        .btn-secondary {
+            background: rgba(0,212,255,0.1);
+            color: #00d4ff;
+            border: 1px solid rgba(0,212,255,0.3);
+        }
+        .log-area {
+            background: rgba(0,0,0,0.3);
+            border-radius: 8px;
+            padding: 12px;
+            font-family: monospace;
+            font-size: 0.7em;
+            color: #a0a0a0;
+            max-height: 150px;
+            overflow-y: auto;
+            margin-top: 12px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .log-area .success { color: #00ff96; }
+        .log-area .error { color: #ff6b9d; }
+        .log-area .info { color: #00d4ff; }
+        .knowledge-item {
+            padding: 10px;
+            margin-bottom: 6px;
+            background: rgba(255,255,255,0.03);
+            border-left: 3px solid rgba(0,212,255,0.3);
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .knowledge-item .title { font-weight: 600; font-size: 0.9em; }
+        .knowledge-item .meta { color: #a0a0a0; font-size: 0.75em; }
+        .badge {
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 0.65em;
+            font-weight: 600;
+        }
+        .badge.studied { background: rgba(0,255,150,0.2); color: #00ff96; }
+        .badge.pending { background: rgba(0,212,255,0.2); color: #00d4ff; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🧠 Knowledge System</h1>
+            <p>Система накопления и изучения знаний</p>
+            <div class="status" id="status-indicator">
+                <span class="status-dot"></span>
+                <span id="status-text">Подключение...</span>
+            </div>
+        </header>
+
+        <!-- Статистика -->
+        <div class="card">
+            <h2>📊 Статистика</h2>
+            <div class="stats-grid">
+                <div class="stat-box">
+                    <div class="stat-value" id="stat-total">0</div>
+                    <div class="stat-label">Всего</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="stat-studied">0</div>
+                    <div class="stat-label">Изучено</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="stat-level">0%</div>
+                    <div class="stat-label">Уровень</div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-value" id="stat-pending">0</div>
+                    <div class="stat-label">В очереди</div>
+                </div>
+            </div>
+            <div style="display:flex; gap:8px; margin-top:12px;">
+                <button class="btn" onclick="loadData()">🔄 Обновить</button>
+                <button class="btn btn-secondary" onclick="testConnection()">📡 Тест</button>
+            </div>
+        </div>
+
+        <!-- Список знаний -->
+        <div class="card">
+            <h2>📚 База знаний</h2>
+            <div id="knowledge-list">
+                <p style="color:#a0a0a0; text-align:center; padding:20px;">⏳ Загрузка...</p>
+            </div>
+        </div>
+
+        <!-- AI Ассистент -->
+        <div class="card">
+            <h2>🤖 AI Ассистент</h2>
+            <input type="text" id="question-input" placeholder="Введите вопрос..." style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.08); color:#e0e0e0; margin-bottom:8px;">
+            <button class="btn" onclick="askQuestion()">❓ Задать вопрос</button>
+            <div id="answer-area" style="margin-top:12px; padding:12px; background:rgba(255,255,255,0.03); border-radius:8px; border-left:3px solid rgba(0,212,255,0.3; display:none;">
+                <div id="answer-text" style="font-size:0.9em;"></div>
+                <div id="answer-sources" style="color:#a0a0a0; font-size:0.75em; margin-top:4px;"></div>
+            </div>
+        </div>
+
+        <!-- Логи -->
+        <div class="card">
+            <h2>📋 Логи</h2>
+            <div class="log-area" id="log-area">🔄 Ожидание действий...</div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // Knowledge System - Telegram Mini App (Упрощённая версия)
+        // ============================================
+
+        // === ИНИЦИАЛИЗАЦИЯ ===
+
+        const tg = window.Telegram?.WebApp;
+        const isTelegram = typeof tg !== 'undefined' && tg;
+
+        let logMessages = [];
+
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString();
+            logMessages.push(`[${timestamp}] ${message}`);
+            const logArea = document.getElementById('log-area');
+            if (logArea) {
+                logArea.innerHTML = logMessages.map(msg => {
+                    const cls = msg.includes('✅') ? 'success' : msg.includes('❌') ? 'error' : 'info';
+                    return `<div class="${cls}">${msg}</div>`;
+                }).join('');
+                logArea.scrollTop = logArea.scrollHeight;
+            }
+            console.log(`[${timestamp}] ${message}`);
+        }
+
+        // Инициализация Telegram
+        if (isTelegram) {
+            tg.ready();
+            tg.expand();
+            const user = tg.initDataUnsafe?.user || { first_name: 'Гость' };
+            document.getElementById('status-text').textContent = `🟢 Подключено • ${user.first_name}`;
+            addLog(`✅ Mini App инициализирован, пользователь: ${user.first_name}`);
+            
+            // Слушаем ответы от бота
+            tg.onEvent('message', function(event) {
+                try {
+                    const data = JSON.parse(event.data);
+                    addLog(`📩 Получен ответ: ${data.action}`);
+                    handleResponse(data);
+                } catch (e) {
+                    addLog(`❌ Ошибка парсинга: ${e.message}`, 'error');
+                }
+            });
+        } else {
+            document.getElementById('status-text').textContent = '⚠️ Тестовый режим';
+            addLog('⚠️ Запущено в браузере (не в Telegram)', 'error');
+        }
+
+        // === ОТПРАВКА В БОТ ===
+
+        function sendToBot(action, data = {}) {
+            if (!isTelegram) {
+                addLog(`📨 [Mock] ${action}`, 'info');
+                // В браузере имитируем ответ
+                setTimeout(() => {
+                    mockResponse(action);
+                }, 500);
+                return;
+            }
+
+            try {
+                const message = JSON.stringify({
+                    action: action,
+                    data: data,
+                    user_id: tg.initDataUnsafe?.user?.id || 'guest'
+                });
+                tg.sendData(message);
+                addLog(`📨 Отправлено: ${action}`);
+            } catch (e) {
+                addLog(`❌ Ошибка отправки: ${e.message}`, 'error');
+            }
+        }
+
+        // === MOCK ОТВЕТЫ ДЛЯ ТЕСТА ===
+
+        function mockResponse(action) {
+            addLog(`📩 [Mock] Ответ на ${action}`);
+            if (action === 'get_stats') {
+                handleResponse({
+                    action: 'stats',
+                    data: {
+                        total_items: 742,
+                        studied: 497,
+                        level: 49.6,
+                        pending: 245,
+                        agent: { is_running: true, knowledge_level: 49.6 }
+                    }
+                });
+            } else if (action === 'get_knowledge') {
+                handleResponse({
+                    action: 'knowledge_list',
+                    data: {
+                        items: [
+                            { id: 1, title: 'Психология личности', category: 'psychology', is_studied: true, created_at: Date.now() },
+                            { id: 2, title: 'Нейронные сети', category: 'ai', is_studied: false, created_at: Date.now() },
+                            { id: 3, title: 'Основы Python', category: 'programming', is_studied: true, created_at: Date.now() }
+                        ],
+                        total: 3
+                    }
+                });
+            } else if (action === 'ask') {
+                handleResponse({
+                    action: 'answer',
+                    data: {
+                        answer: 'Это тестовый ответ. В реальности данные приходят от бота.',
+                        sources: 3
+                    }
+                });
+            }
+        }
+
+        // === ОБРАБОТКА ОТВЕТОВ ===
+
+        function handleResponse(response) {
+            switch(response.action) {
+                case 'stats':
+                    updateStats(response.data);
+                    addLog(`✅ Статистика обновлена: ${response.data.total_items} элементов`);
+                    break;
+                case 'knowledge_list':
+                    displayKnowledge(response.data.items || []);
+                    addLog(`✅ Загружено знаний: ${(response.data.items || []).length}`);
+                    break;
+                case 'answer':
+                    showAnswer(response.data);
+                    addLog(`✅ Получен ответ на вопрос`);
+                    break;
+                case 'error':
+                    addLog(`❌ Ошибка: ${response.data?.message || 'Неизвестная ошибка'}`, 'error');
+                    break;
+                default:
+                    addLog(`📩 Неизвестный ответ: ${response.action}`);
+            }
+        }
+
+        // === ОБНОВЛЕНИЕ СТАТИСТИКИ ===
+
+        function updateStats(stats) {
+            document.getElementById('stat-total').textContent = stats.total_items || 0;
+            document.getElementById('stat-studied').textContent = stats.studied || 0;
+            document.getElementById('stat-level').textContent = Math.round(stats.level || 0) + '%';
+            document.getElementById('stat-pending').textContent = stats.pending || 0;
+        }
+
+        // === ОТОБРАЖЕНИЕ ЗНАНИЙ ===
+
+        function displayKnowledge(items) {
+            const list = document.getElementById('knowledge-list');
+            list.innerHTML = '';
+            
+            if (!items || items.length === 0) {
+                list.innerHTML = '<p style="color:#a0a0a0; text-align:center; padding:20px;">📭 Нет элементов</p>';
+                return;
+            }
+            
+            items.forEach(item => {
+                const badge = item.is_studied ? 
+                    '<span class="badge studied">✅ Изучено</span>' :
+                    '<span class="badge pending">⏳ В очереди</span>';
+                
+                list.innerHTML += `
+                    <div class="knowledge-item">
+                        <div>
+                            <div class="title">${item.title || 'Без названия'}</div>
+                            <div class="meta">${item.category || 'general'}</div>
+                        </div>
+                        ${badge}
+                    </div>
+                `;
+            });
+        }
+
+        // === AI АССИСТЕНТ ===
+
+        function askQuestion() {
+            const question = document.getElementById('question-input').value.trim();
+            if (!question) {
+                addLog('⚠️ Введите вопрос', 'error');
+                return;
+            }
+            addLog(`❓ Вопрос: ${question}`);
+            sendToBot('ask', { question: question });
+        }
+
+        function showAnswer(data) {
+            const area = document.getElementById('answer-area');
+            const text = document.getElementById('answer-text');
+            const sources = document.getElementById('answer-sources');
+            
+            text.textContent = data.answer || 'Нет ответа';
+            sources.textContent = `📚 Источников: ${data.sources || 0}`;
+            area.style.display = 'block';
+        }
+
+        // === ЗАГРУЗКА ДАННЫХ ===
+
+        function loadData() {
+            addLog('🔄 Загрузка данных...');
+            sendToBot('get_stats');
+            sendToBot('get_knowledge', { page: 1, limit: 20 });
+        }
+
+        function testConnection() {
+            addLog('📡 Тест связи...');
+            sendToBot('get_stats');
+        }
+
+        // === АВТОЗАГРУЗКА ===
+
+        document.addEventListener('DOMContentLoaded', function() {
+            addLog('📄 DOM загружен');
+            
+            // Ждём 1 секунду для инициализации Telegram
+            setTimeout(function() {
+                if (isTelegram) {
+                    addLog('🔄 Загрузка начальных данных...');
+                    loadData();
+                } else {
+                    addLog('⚠️ Тестовый режим, загружаю мок-данные...');
+                    setTimeout(function() {
+                        mockResponse('get_stats');
+                        mockResponse('get_knowledge');
+                    }, 300);
+                }
+            }, 1000);
+        });
+
+        // === КНОПКА ENTER ДЛЯ ВОПРОСА ===
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const input = document.getElementById('question-input');
+            if (input) {
+                input.addEventListener('keypress', function(e) {
+                    if (e.key === 'Enter') {
+                        askQuestion();
+                    }
+                });
+            }
+        });
+
+        addLog('✅ Mini App загружен');
+    </script>
+</body>
+</html>
