@@ -152,6 +152,8 @@
             color: #e0e0e0;
             margin-bottom: 8px;
         }
+        .flex-row { display: flex; gap: 8px; }
+        .flex-row .btn { flex: 1; }
     </style>
 </head>
 <body>
@@ -220,8 +222,12 @@
 
     <script>
         // ============================================
-        // Knowledge System - Telegram Mini App (Исправленная версия)
+        // Knowledge System - Mini App с HTTP API
         // ============================================
+
+        // ===== КОНФИГУРАЦИЯ =====
+        // Замените на ваш публичный URL от Cloudflare Tunnel
+        const API_BASE = 'https://shell-assumption-ssl-faces.trycloudflare.com/api';
 
         const tg = window.Telegram?.WebApp;
         const isTelegram = typeof tg !== 'undefined' && tg;
@@ -249,136 +255,35 @@
             const user = tg.initDataUnsafe?.user || { first_name: 'Гость' };
             document.getElementById('status-text').textContent = `🟢 Подключено • ${user.first_name}`;
             addLog(`✅ Mini App инициализирован, пользователь: ${user.first_name}`);
-
-            // ===== ОБРАБОТЧИК ДЛЯ ОТВЕТОВ ЧЕРЕЗ web_app_data =====
-            tg.onEvent('web_app_data', function(event) {
-                try {
-                    const data = JSON.parse(event.data);
-                    addLog(`📩 Получен ответ (web_app_data): ${data.action}`, 'info');
-                    handleResponse(data);
-                } catch (e) {
-                    addLog(`❌ Ошибка парсинга web_app_data: ${e.message}`, 'error');
-                }
-            });
-
-            // ===== ОБРАБОТЧИК ДЛЯ ОБЫЧНЫХ СООБЩЕНИЙ (ОТВЕТЫ БОТА) =====
-            tg.onEvent('message', function(event) {
-                try {
-                    const data = JSON.parse(event.data);
-                    if (data.action) {
-                        addLog(`📩 Получен ответ (message): ${data.action}`, 'info');
-                        handleResponse(data);
-                    } else {
-                        addLog(`📩 Получено сообщение: ${event.data.substring(0, 100)}`, 'info');
-                    }
-                } catch (e) {
-                    // Если не JSON – просто логируем
-                    addLog(`📩 Текстовое сообщение: ${event.data.substring(0, 100)}`, 'info');
-                }
-            });
-
         } else {
             document.getElementById('status-text').textContent = '⚠️ Тестовый режим';
-            addLog('⚠️ Запущено в браузере (не в Telegram)', 'error');
+            addLog('⚠️ Запущено в браузере (не в Telegram)');
         }
 
-        // === ОТПРАВКА В БОТ ===
-        function sendToBot(action, data = {}) {
-            if (!isTelegram) {
-                addLog(`📨 [Mock] ${action}`, 'info');
-                setTimeout(() => mockResponse(action), 500);
-                return;
+        // ===== УНИВЕРСАЛЬНАЯ ФУНКЦИЯ ВЫЗОВА API =====
+        async function callApi(endpoint, method = 'GET', data = null) {
+            const url = `${API_BASE}/${endpoint}`;
+            const options = {
+                method: method,
+                headers: { 'Content-Type': 'application/json' }
+            };
+            if (data) {
+                options.body = JSON.stringify(data);
             }
-
             try {
-                const message = JSON.stringify({
-                    action: action,
-                    data: data,
-                    user_id: tg.initDataUnsafe?.user?.id || 'guest'
-                });
-                tg.sendData(message);
-                addLog(`📨 Отправлено: ${action}`, 'info');
-            } catch (e) {
-                addLog(`❌ Ошибка отправки: ${e.message}`, 'error');
+                const response = await fetch(url, options);
+                if (!response.ok) {
+                    const errText = await response.text();
+                    throw new Error(`HTTP ${response.status}: ${errText}`);
+                }
+                return await response.json();
+            } catch (error) {
+                addLog(`❌ Ошибка API (${endpoint}): ${error.message}`, 'error');
+                throw error;
             }
         }
 
-        // === MOCK ОТВЕТЫ ДЛЯ ТЕСТА ===
-        function mockResponse(action) {
-            addLog(`📩 [Mock] Ответ на ${action}`, 'info');
-            if (action === 'get_stats') {
-                handleResponse({
-                    action: 'stats',
-                    data: {
-                        total_items: 742,
-                        studied: 497,
-                        level: 49.6,
-                        pending: 245,
-                        agent: { is_running: true, knowledge_level: 49.6 }
-                    }
-                });
-            } else if (action === 'get_knowledge') {
-                handleResponse({
-                    action: 'knowledge_list',
-                    data: {
-                        items: [
-                            { id: 1, title: 'Психология личности', category: 'psychology', is_studied: true, created_at: Date.now() },
-                            { id: 2, title: 'Нейронные сети', category: 'ai', is_studied: false, created_at: Date.now() },
-                            { id: 3, title: 'Основы Python', category: 'programming', is_studied: true, created_at: Date.now() }
-                        ],
-                        total: 3
-                    }
-                });
-            } else if (action === 'ask') {
-                handleResponse({
-                    action: 'answer',
-                    data: {
-                        answer: 'Это тестовый ответ. В реальности данные приходят от бота.',
-                        sources: 3
-                    }
-                });
-            }
-        }
-
-        // === ОБРАБОТКА ОТВЕТОВ ===
-        function handleResponse(response) {
-            switch(response.action) {
-                case 'stats':
-                    updateStats(response.data);
-                    addLog(`✅ Статистика обновлена: ${response.data.total_items} элементов`, 'success');
-                    break;
-                case 'knowledge_list':
-                    displayKnowledge(response.data.items || []);
-                    addLog(`✅ Загружено знаний: ${(response.data.items || []).length}`, 'success');
-                    break;
-                case 'answer':
-                    showAnswer(response.data);
-                    addLog(`✅ Получен ответ на вопрос`, 'success');
-                    break;
-                case 'add_result':
-                    if (response.data.success) {
-                        addLog(`✅ Заметка сохранена: ${response.data.title}`, 'success');
-                    } else {
-                        addLog(`❌ Ошибка сохранения: ${response.data.message}`, 'error');
-                    }
-                    break;
-                case 'generate_result':
-                    if (response.data.success) {
-                        addLog(`✅ Тема сгенерирована: ${response.data.topic}`, 'success');
-                    } else {
-                        addLog(`❌ Ошибка генерации: ${response.data.message}`, 'error');
-                    }
-                    break;
-                case 'error':
-                    addLog(`❌ Ошибка: ${response.data?.message || 'Неизвестная ошибка'}`, 'error');
-                    break;
-                default:
-                    addLog(`📩 Неизвестный ответ: ${response.action}`, 'info');
-                    addLog(`📩 Данные: ${JSON.stringify(response.data).substring(0, 100)}`, 'info');
-            }
-        }
-
-        // === ОБНОВЛЕНИЕ СТАТИСТИКИ ===
+        // ===== ОБНОВЛЕНИЕ СТАТИСТИКИ =====
         function updateStats(stats) {
             document.getElementById('stat-total').textContent = stats.total_items || 0;
             document.getElementById('stat-studied').textContent = stats.studied || 0;
@@ -386,21 +291,18 @@
             document.getElementById('stat-pending').textContent = stats.pending || 0;
         }
 
-        // === ОТОБРАЖЕНИЕ ЗНАНИЙ ===
+        // ===== ОТОБРАЖЕНИЕ ЗНАНИЙ =====
         function displayKnowledge(items) {
             const list = document.getElementById('knowledge-list');
             list.innerHTML = '';
-
             if (!items || items.length === 0) {
                 list.innerHTML = '<p style="color:#a0a0a0; text-align:center; padding:20px;">📭 Нет элементов</p>';
                 return;
             }
-
             items.forEach(item => {
-                const badge = item.is_studied ?
-                    '<span class="badge studied">✅ Изучено</span>' :
-                    '<span class="badge pending">⏳ В очереди</span>';
-
+                const badge = item.is_studied
+                    ? '<span class="badge studied">✅ Изучено</span>'
+                    : '<span class="badge pending">⏳ В очереди</span>';
                 list.innerHTML += `
                     <div class="knowledge-item">
                         <div>
@@ -413,58 +315,74 @@
             });
         }
 
-        // === AI АССИСТЕНТ ===
-        function askQuestion() {
+        // ===== ОТОБРАЖЕНИЕ ОТВЕТА =====
+        function showAnswer(data) {
+            const area = document.getElementById('answer-area');
+            const text = document.getElementById('answer-text');
+            const sources = document.getElementById('answer-sources');
+            text.textContent = data.answer || 'Нет ответа';
+            sources.textContent = `📚 Источников: ${data.sources || 0}`;
+            area.style.display = 'block';
+        }
+
+        // ===== ДЕЙСТВИЯ ПОЛЬЗОВАТЕЛЯ =====
+
+        // Загрузка данных (статистика + список знаний)
+        async function loadData() {
+            addLog('🔄 Загрузка данных...', 'info');
+            try {
+                const stats = await callApi('stats');
+                updateStats(stats);
+                const knowledge = await callApi('knowledge?page=1&limit=20');
+                displayKnowledge(knowledge.items);
+                addLog(`✅ Данные загружены (${knowledge.total} элементов)`, 'success');
+            } catch (e) {
+                addLog(`❌ Ошибка загрузки: ${e.message}`, 'error');
+            }
+        }
+
+        // Задать вопрос
+        async function askQuestion() {
             const question = document.getElementById('question-input').value.trim();
             if (!question) {
                 addLog('⚠️ Введите вопрос', 'error');
                 return;
             }
             addLog(`❓ Вопрос: ${question}`, 'info');
-            sendToBot('ask', { question: question });
+            try {
+                const result = await callApi('ask', 'POST', { question });
+                showAnswer(result);
+                addLog('✅ Ответ получен', 'success');
+            } catch (e) {
+                addLog(`❌ Ошибка: ${e.message}`, 'error');
+            }
         }
 
-        function showAnswer(data) {
-            const area = document.getElementById('answer-area');
-            const text = document.getElementById('answer-text');
-            const sources = document.getElementById('answer-sources');
-
-            text.textContent = data.answer || 'Нет ответа';
-            sources.textContent = `📚 Источников: ${data.sources || 0}`;
-            area.style.display = 'block';
+        // Тест соединения
+        async function testConnection() {
+            addLog('📡 Проверка связи...', 'info');
+            try {
+                const health = await callApi('health');
+                addLog(`✅ Сервер доступен (элементов: ${health.items_count})`, 'success');
+            } catch (e) {
+                addLog(`❌ Сервер недоступен: ${e.message}`, 'error');
+            }
         }
 
-        // === ЗАГРУЗКА ДАННЫХ ===
-        function loadData() {
-            addLog('🔄 Загрузка данных...', 'info');
-            sendToBot('get_stats');
-            sendToBot('get_knowledge', { page: 1, limit: 20 });
-        }
-
-        function testConnection() {
-            addLog('📡 Тест связи...', 'info');
-            sendToBot('get_stats');
-        }
-
-        // === АВТОЗАГРУЗКА ===
+        // ===== АВТОЗАГРУЗКА =====
         document.addEventListener('DOMContentLoaded', function() {
             addLog('📄 DOM загружен', 'info');
-
-            setTimeout(function() {
+            setTimeout(() => {
                 if (isTelegram) {
                     addLog('🔄 Загрузка начальных данных...', 'info');
                     loadData();
                 } else {
-                    addLog('⚠️ Тестовый режим, загружаю мок-данные...', 'error');
-                    setTimeout(function() {
-                        mockResponse('get_stats');
-                        mockResponse('get_knowledge');
-                    }, 300);
+                    addLog('⚠️ Тестовый режим (без API)', 'error');
                 }
-            }, 1000);
+            }, 500);
         });
 
-        // === КНОПКА ENTER ===
+        // ===== КНОПКА ENTER =====
         document.addEventListener('DOMContentLoaded', function() {
             const input = document.getElementById('question-input');
             if (input) {
