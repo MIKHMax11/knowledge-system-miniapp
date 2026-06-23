@@ -224,7 +224,6 @@
         // ============================================
 
         // === ИНИЦИАЛИЗАЦИЯ ===
-
         const tg = window.Telegram?.WebApp;
         const isTelegram = typeof tg !== 'undefined' && tg;
 
@@ -252,7 +251,7 @@
             document.getElementById('status-text').textContent = `🟢 Подключено • ${user.first_name}`;
             addLog(`✅ Mini App инициализирован, пользователь: ${user.first_name}`);
             
-            // ✅ ИСПРАВЛЕНО: слушаем web_app_data вместо message
+            // ✅ ЕДИНСТВЕННЫЙ ОБРАБОТЧИК ОТВЕТОВ - web_app_data
             tg.onEvent('web_app_data', function(event) {
                 try {
                     const data = JSON.parse(event.data);
@@ -268,7 +267,6 @@
         }
 
         // === ОТПРАВКА В БОТ ===
-
         function sendToBot(action, data = {}) {
             if (!isTelegram) {
                 addLog(`📨 [Mock] ${action}`, 'info');
@@ -290,7 +288,6 @@
         }
 
         // === MOCK ОТВЕТЫ ДЛЯ ТЕСТА ===
-
         function mockResponse(action) {
             addLog(`📩 [Mock] Ответ на ${action}`);
             if (action === 'get_stats') {
@@ -328,7 +325,6 @@
         }
 
         // === ОБРАБОТКА ОТВЕТОВ ===
-
         function handleResponse(response) {
             switch(response.action) {
                 case 'stats':
@@ -343,16 +339,30 @@
                     showAnswer(response.data);
                     addLog(`✅ Получен ответ на вопрос`);
                     break;
+                case 'add_result':
+                    if (response.data.success) {
+                        addLog(`✅ Заметка сохранена: ${response.data.title}`);
+                    } else {
+                        addLog(`❌ Ошибка сохранения: ${response.data.message}`, 'error');
+                    }
+                    break;
+                case 'generate_result':
+                    if (response.data.success) {
+                        addLog(`✅ Тема сгенерирована: ${response.data.topic}`);
+                    } else {
+                        addLog(`❌ Ошибка генерации: ${response.data.message}`, 'error');
+                    }
+                    break;
                 case 'error':
                     addLog(`❌ Ошибка: ${response.data?.message || 'Неизвестная ошибка'}`, 'error');
                     break;
                 default:
                     addLog(`📩 Неизвестный ответ: ${response.action}`);
+                    addLog(`📩 Данные: ${JSON.stringify(response.data).substring(0, 100)}`);
             }
         }
 
         // === ОБНОВЛЕНИЕ СТАТИСТИКИ ===
-
         function updateStats(stats) {
             document.getElementById('stat-total').textContent = stats.total_items || 0;
             document.getElementById('stat-studied').textContent = stats.studied || 0;
@@ -361,7 +371,6 @@
         }
 
         // === ОТОБРАЖЕНИЕ ЗНАНИЙ ===
-
         function displayKnowledge(items) {
             const list = document.getElementById('knowledge-list');
             list.innerHTML = '';
@@ -389,7 +398,6 @@
         }
 
         // === AI АССИСТЕНТ ===
-
         function askQuestion() {
             const question = document.getElementById('question-input').value.trim();
             if (!question) {
@@ -411,7 +419,6 @@
         }
 
         // === ЗАГРУЗКА ДАННЫХ ===
-
         function loadData() {
             addLog('🔄 Загрузка данных...');
             sendToBot('get_stats');
@@ -424,7 +431,6 @@
         }
 
         // === АВТОЗАГРУЗКА ===
-
         document.addEventListener('DOMContentLoaded', function() {
             addLog('📄 DOM загружен');
             
@@ -443,7 +449,6 @@
         });
 
         // === КНОПКА ENTER ===
-
         document.addEventListener('DOMContentLoaded', function() {
             const input = document.getElementById('question-input');
             if (input) {
