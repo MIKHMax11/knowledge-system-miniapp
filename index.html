@@ -143,6 +143,15 @@
         }
         .badge.studied { background: rgba(0,255,150,0.2); color: #00ff96; }
         .badge.pending { background: rgba(0,212,255,0.2); color: #00d4ff; }
+        input {
+            width: 100%;
+            padding: 10px;
+            border-radius: 8px;
+            border: 1px solid rgba(255,255,255,0.15);
+            background: rgba(255,255,255,0.08);
+            color: #e0e0e0;
+            margin-bottom: 8px;
+        }
     </style>
 </head>
 <body>
@@ -194,9 +203,9 @@
         <!-- AI Ассистент -->
         <div class="card">
             <h2>🤖 AI Ассистент</h2>
-            <input type="text" id="question-input" placeholder="Введите вопрос..." style="width:100%; padding:10px; border-radius:8px; border:1px solid rgba(255,255,255,0.15); background:rgba(255,255,255,0.08); color:#e0e0e0; margin-bottom:8px;">
+            <input type="text" id="question-input" placeholder="Введите вопрос...">
             <button class="btn" onclick="askQuestion()">❓ Задать вопрос</button>
-            <div id="answer-area" style="margin-top:12px; padding:12px; background:rgba(255,255,255,0.03); border-radius:8px; border-left:3px solid rgba(0,212,255,0.3; display:none;">
+            <div id="answer-area" style="margin-top:12px; padding:12px; background:rgba(255,255,255,0.03); border-radius:8px; border-left:3px solid rgba(0,212,255,0.3); display:none;">
                 <div id="answer-text" style="font-size:0.9em;"></div>
                 <div id="answer-sources" style="color:#a0a0a0; font-size:0.75em; margin-top:4px;"></div>
             </div>
@@ -211,7 +220,7 @@
 
     <script>
         // ============================================
-        // Knowledge System - Telegram Mini App (Упрощённая версия)
+        // Knowledge System - Telegram Mini App
         // ============================================
 
         // === ИНИЦИАЛИЗАЦИЯ ===
@@ -243,8 +252,8 @@
             document.getElementById('status-text').textContent = `🟢 Подключено • ${user.first_name}`;
             addLog(`✅ Mini App инициализирован, пользователь: ${user.first_name}`);
             
-            // Слушаем ответы от бота
-            tg.onEvent('message', function(event) {
+            // ✅ ИСПРАВЛЕНО: слушаем web_app_data вместо message
+            tg.onEvent('web_app_data', function(event) {
                 try {
                     const data = JSON.parse(event.data);
                     addLog(`📩 Получен ответ: ${data.action}`);
@@ -263,10 +272,7 @@
         function sendToBot(action, data = {}) {
             if (!isTelegram) {
                 addLog(`📨 [Mock] ${action}`, 'info');
-                // В браузере имитируем ответ
-                setTimeout(() => {
-                    mockResponse(action);
-                }, 500);
+                setTimeout(() => mockResponse(action), 500);
                 return;
             }
 
@@ -422,7 +428,6 @@
         document.addEventListener('DOMContentLoaded', function() {
             addLog('📄 DOM загружен');
             
-            // Ждём 1 секунду для инициализации Telegram
             setTimeout(function() {
                 if (isTelegram) {
                     addLog('🔄 Загрузка начальных данных...');
@@ -437,7 +442,7 @@
             }, 1000);
         });
 
-        // === КНОПКА ENTER ДЛЯ ВОПРОСА ===
+        // === КНОПКА ENTER ===
 
         document.addEventListener('DOMContentLoaded', function() {
             const input = document.getElementById('question-input');
